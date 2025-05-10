@@ -10,9 +10,11 @@
 /* Ring buffer event */
 struct event {
     u32 pid;
-    u32 file_owner_uid;
-    u32 file_owner_gid;
-    u32 mode; /* permission bits + type bits */
+    u32 file_opener_uid; /* Who opened the file (UID) */
+    u32 file_opener_gid; /* Who opened the file (GID) */
+    u32 file_owner_uid;  /* Who owns the file (UID) */
+    u32 file_owner_gid;  /* Who owns the file (GID) */
+    u32 mode;            /* permission bits + type bits */
     u64 inode;
     u64 size;
     char process_name[MAX_PROCESS_NAME_LEN];
@@ -46,9 +48,16 @@ int BPF_PROG(capture_open, struct file *file) {
     if (!e)
         return 0;
 
+    /* Obtain process information */
     e->pid = bpf_get_current_pid_tgid() >> 32;
     bpf_get_current_comm(e->process_name, sizeof(e->process_name));
 
+    /* Obtain process UID/GID */
+    u64 uid_gid = bpf_get_current_uid_gid();
+    e->file_opener_uid = uid_gid & 0xFFFFFFFF;
+    e->file_opener_gid = uid_gid >> 32;
+
+    /* Obtain file information */
     inode = BPF_CORE_READ(file, f_inode);
     e->file_owner_uid = BPF_CORE_READ(inode, i_uid.val);
     e->file_owner_gid = BPF_CORE_READ(inode, i_gid.val);

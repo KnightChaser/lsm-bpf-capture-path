@@ -21,9 +21,11 @@
 #define MAX_PROCESS_NAME_LEN 32
 struct event {
     uint32_t pid;
-    uint32_t file_owner_uid;
-    uint32_t file_owner_gid;
-    uint32_t mode; /* permission bits + type bits */
+    uint32_t file_opener_uid; /* Who opened the file (UID) */
+    uint32_t file_opener_gid; /* Who opened the file (GID) */
+    uint32_t file_owner_uid;  /* Who owns the file (UID) */
+    uint32_t file_owner_gid;  /* Who owns the file (GID) */
+    uint32_t mode;            /* permission bits + type bits */
     uint64_t inode;
     uint64_t size;
     char process_name[MAX_PROCESS_NAME_LEN];
@@ -35,13 +37,23 @@ static volatile sig_atomic_t stop;
 static int handle_event(void *ctx, void *data, size_t sz) {
     const struct event *e = data;
 
-    const char *user = uid_to_name(e->file_owner_uid);
-    const char *group = gid_to_name(e->file_owner_gid);
+    const char *file_opener_uid_name = uid_to_name(e->file_opener_uid);
+    const char *file_opener_gid_name = gid_to_name(e->file_opener_gid);
+    const char *file_owner_uid_name = uid_to_name(e->file_owner_uid);
+    const char *file_owner_gid_name = gid_to_name(e->file_owner_gid);
 
-    printf("[PID %u] Permission=%s(%u):%s(%u), inode=%" PRIu64 ", size=%" PRIu64
-           "Bytes, mode=%#o, program=%s, filepath=%s\n",
-           e->pid, user, e->file_owner_uid, group, e->file_owner_gid, e->inode,
-           e->size, e->mode & 07777, e->process_name, e->path);
+    printf("[PID %u] "                                   // NOLINT
+           "File opener=%s(%u):%s(%u), "                 // NOLINT
+           "File owner=%s(%u):%s(%u), "                  // NOLINT
+           "inode=%" PRIu64 ", size=%" PRIu64            // NOLINT
+           "Bytes, mode=%#o, program=%s, filepath=%s\n", // NOLINT
+           e->pid,                                       // NOLINT
+           file_opener_uid_name, e->file_opener_uid,     // NOLINT
+           file_opener_gid_name, e->file_opener_gid,     // NOLINT
+           file_owner_uid_name, e->file_owner_uid,       // NOLINT
+           file_owner_gid_name, e->file_owner_gid,       // NOLINT
+           e->inode, e->size, e->mode & 07777,           // NOLINT
+           e->process_name, e->path);                    // NOLINT
     return 0;
 }
 
