@@ -1,5 +1,6 @@
 // capture_path.bpf.c
 #define MAX_PATH_LEN 384
+#define MAX_PROCESS_NAME_LEN 32
 
 #include "vmlinux.h"
 #include <bpf/bpf_core_read.h>
@@ -14,6 +15,7 @@ struct event {
     u32 mode; /* permission bits + type bits */
     u64 inode;
     u64 size;
+    char process_name[MAX_PROCESS_NAME_LEN];
     char path[MAX_PATH_LEN];
 };
 
@@ -45,6 +47,7 @@ int BPF_PROG(capture_open, struct file *file) {
         return 0;
 
     e->pid = bpf_get_current_pid_tgid() >> 32;
+    bpf_get_current_comm(e->process_name, sizeof(e->process_name));
 
     inode = BPF_CORE_READ(file, f_inode);
     e->uid = BPF_CORE_READ(inode, i_uid.val);
