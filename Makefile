@@ -4,14 +4,21 @@ BPF_OBJ        := $(BPF_SRC:.c=.o)
 SKEL_HEADER    := capture_path.skel.h
 USER_BIN       := capture_path
 
+# user-space sources
+USER_SRCS      := capture_path.c uid_gid_lookup.c
+USER_OBJS      := $(USER_SRCS:.c=.o)
+
 CLANG          ?= clang
 BPFOOL         ?= bpftool
-CFLAGS_USER    ?= -O2 -g
-CFLAGS_BPF     ?= -O2 -g -target bpf
-LDFLAGS_USER   ?= -lelf -lbpf
+CC             ?= gcc
 
-# ---- rules ------------------------------------------------------
-all: $(USER_BIN)
+CFLAGS_BPF     ?= -O2 -g -target bpf
+CFLAGS_USER    ?= -O2 -g
+LDFLAGS_USER   ?= -lelf -lbpf
+PKG_INCLUDES   := -I/usr/include/bpf
+
+# ---- default target ---------------------------------------------
+all: vmlinux.h $(BPF_OBJ) $(SKEL_HEADER) $(USER_BIN)
 
 # 1. generate vmlinux.h once
 vmlinux.h:
@@ -25,12 +32,17 @@ $(BPF_OBJ): $(BPF_SRC) vmlinux.h
 $(SKEL_HEADER): $(BPF_OBJ)
 	$(BPFOOL) gen skeleton $< > $@
 
-# 4. build user loader
-$(USER_BIN): capture_path.c $(SKEL_HEADER)
-	$(CC) $(CFLAGS_USER) $< -I/usr/include/bpf -o $@ $(LDFLAGS_USER)
+# 4a. build user-space object files
+%.o: %.c
+	$(CC) $(CFLAGS_USER) $(PKG_INCLUDES) -c $< -o $@
 
+# 4b. link the final loader binary
+$(USER_BIN): $(USER_OBJS) $(SKEL_HEADER)
+	$(CC) $(CFLAGS_USER) $(PKG_INCLUDES) $^ -o $@ $(LDFLAGS_USER)
+
+# ---- housekeeping -----------------------------------------------
 clean:
-	rm -rf $(USER_BIN)
-	rm -rf $(BPF_OBJ)
-	rm -rf $(SKEL_HEADER)
-	rm -rf vmlinux.h
+	rm -f $(USER_BIN) \
+	      $(BPF_OBJ) $(SKEL_HEADER) vmlinux.h \
+	      $(USER_OBJS)
+

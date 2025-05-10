@@ -1,5 +1,6 @@
 // capture_path.c
 #include "capture_path.skel.h"
+#include "uid_gid_lookup.h"
 #include <bpf/libbpf.h>
 #include <grp.h>
 #include <inttypes.h>
@@ -28,80 +29,6 @@ struct event {
 } __attribute__((packed));
 
 static volatile sig_atomic_t stop;
-
-/* Custom UID cache */
-static struct {
-    uid_t uid;
-    char name[NAME_LEN];
-    bool valid;
-} uid_cache[UID_CACHE_SIZE] = {0};
-
-/* Return pointer to a null-terminated string in cache */
-static const char *uid_to_name(uid_t uid) {
-    /* cache lookup */
-    for (size_t i = 0; i < UID_CACHE_SIZE; i++) {
-        if (uid_cache[i].valid && uid_cache[i].uid == uid) {
-            return uid_cache[i].name;
-        }
-    }
-
-    /* Not found -> resolve */
-    struct passwd *pw = getpwuid(uid);
-    const char *name = pw ? pw->pw_name : NULL;
-    if (!name) {
-        return "unknown";
-    }
-
-    /* cache the result */
-    for (size_t i = 0; i < UID_CACHE_SIZE; i++) {
-        if (!uid_cache[i].valid) {
-            uid_cache[i].valid = true;
-            uid_cache[i].uid = uid;
-            strncpy(uid_cache[i].name, name, NAME_LEN - 1);
-            uid_cache[i].name[NAME_LEN - 1] = '\0';
-            break;
-        }
-    }
-
-    return name;
-}
-
-/* Custom GID cache */
-static struct {
-    gid_t gid;
-    char name[NAME_LEN];
-    bool valid;
-} gid_cache[GID_CACHE_SIZE] = {0};
-
-/* Return pointer to a null-terminated string in cache */
-static const char *gid_to_name(gid_t gid) {
-    /* cache lookup */
-    for (size_t i = 0; i < GID_CACHE_SIZE; i++) {
-        if (gid_cache[i].valid && gid_cache[i].gid == gid) {
-            return gid_cache[i].name;
-        }
-    }
-
-    /* Not found -> resolve */
-    struct group *gr = getgrgid(gid);
-    const char *name = gr ? gr->gr_name : NULL;
-    if (!name) {
-        return "unknown";
-    }
-
-    /* cache the result */
-    for (size_t i = 0; i < GID_CACHE_SIZE; i++) {
-        if (!gid_cache[i].valid) {
-            gid_cache[i].valid = true;
-            gid_cache[i].gid = gid;
-            strncpy(gid_cache[i].name, name, NAME_LEN - 1);
-            gid_cache[i].name[NAME_LEN - 1] = '\0';
-            break;
-        }
-    }
-
-    return name;
-}
 
 static int handle_event(void *ctx, void *data, size_t sz) {
     const struct event *e = data;
