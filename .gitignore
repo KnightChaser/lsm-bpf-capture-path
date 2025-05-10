@@ -1,0 +1,8 @@
+*.o
+*.skel.h
+*.bpf.o
+vmlinux.h
+capture_path
+*.dSYM/
+*.d
+build/
