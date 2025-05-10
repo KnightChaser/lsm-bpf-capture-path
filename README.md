@@ -16,6 +16,13 @@ static __always_inline int get_path_full(struct file *f, char *buf, int len) {
 }
 ```
 
+Preview
+-------------
+- Left console: The file open events are enumerated sequentially, from the compiled binary of this project.
+- Right console: A user named `lixe`(UID: 1000, GID: 1000), opened a file named `vmlinux.h` via `cat` command.
+![image](https://github.com/user-attachments/assets/82af61f8-3960-4806-8e63-9b4f650a7950)
+
+
 Prerequisites
 -------------
 
