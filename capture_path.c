@@ -21,8 +21,8 @@
 #define MAX_PROCESS_NAME_LEN 32
 struct event {
     uint32_t pid;
-    uint32_t uid;
-    uint32_t gid;
+    uint32_t file_owner_uid;
+    uint32_t file_owner_gid;
     uint32_t mode; /* permission bits + type bits */
     uint64_t inode;
     uint64_t size;
@@ -35,13 +35,13 @@ static volatile sig_atomic_t stop;
 static int handle_event(void *ctx, void *data, size_t sz) {
     const struct event *e = data;
 
-    const char *user = uid_to_name(e->uid);
-    const char *group = gid_to_name(e->gid);
+    const char *user = uid_to_name(e->file_owner_uid);
+    const char *group = gid_to_name(e->file_owner_gid);
 
     printf("[PID %u] Permission=%s(%u):%s(%u), inode=%" PRIu64 ", size=%" PRIu64
            "Bytes, mode=%#o, program=%s, filepath=%s\n",
-           e->pid, user, e->uid, group, e->gid, e->inode, e->size,
-           e->mode & 07777, e->process_name, e->path);
+           e->pid, user, e->file_owner_uid, group, e->file_owner_gid, e->inode,
+           e->size, e->mode & 07777, e->process_name, e->path);
     return 0;
 }
 

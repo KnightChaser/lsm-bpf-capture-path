@@ -10,8 +10,8 @@
 /* Ring buffer event */
 struct event {
     u32 pid;
-    u32 uid;
-    u32 gid;
+    u32 file_owner_uid;
+    u32 file_owner_gid;
     u32 mode; /* permission bits + type bits */
     u64 inode;
     u64 size;
@@ -50,8 +50,8 @@ int BPF_PROG(capture_open, struct file *file) {
     bpf_get_current_comm(e->process_name, sizeof(e->process_name));
 
     inode = BPF_CORE_READ(file, f_inode);
-    e->uid = BPF_CORE_READ(inode, i_uid.val);
-    e->gid = BPF_CORE_READ(inode, i_gid.val);
+    e->file_owner_uid = BPF_CORE_READ(inode, i_uid.val);
+    e->file_owner_gid = BPF_CORE_READ(inode, i_gid.val);
     e->mode = BPF_CORE_READ(inode, i_mode);
     e->inode = BPF_CORE_READ(inode, i_ino);
     e->size = BPF_CORE_READ(inode, i_size);
