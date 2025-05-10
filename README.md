@@ -1,3 +1,4 @@
+
 # `lsm-bpf-capture-path`
 
 This mini‑project shows how to capture every `file_open` event in the Linux kernel and print the **full pathname** from user space. On kernels **>= 6.8** it uses the safer `bpf_path_d_path()` kfunc; on older kernels it transparently falls back to `bpf_d_path()`.
@@ -35,3 +36,20 @@ cat /sys/kernel/security/lsm
 ```
 
 If bpf is not listed, the hook chain will never reach the program.
+
+NOTE
+--------------------
+
+### Caution (for newcomers like me)
+
+* **“Sleepable” BPF programs are allowed to call helpers (and kfuncs) that might block or schedule---such as `bpf_d_path()`---so the verifier demands you mark them with the flag `BPF_F_SLEEPABLE`**.
+  * A **sleepable BPF program**  runs in a context where it can **legitimately block**, call into the memory allocator, look up file names, etc. When such blocking is possible the verifier forces you to opt‑in by setting **`BPF_F_SLEEPABLE`**; otherwise helpers marked **KF_SLEEPABLE**  are rejected.
+  * Non‑sleepable program types (e.g., **kprobes**, XDP) still run in hard‑IRQ or preempt‑disabled contexts and therefore cannot call helpers such as `bpf_d_path()` or `bpf_copy_from_user()`  that may sleep.
+* BPF programs permitted to call helpers/kfuncs that can **block**; must load with `BPF_F_SLEEPABLE`. If you omit `.s`---`SEC("lsm/file_open")`(Refer to `capture_path.bpf.c`)---libbpf still generates an LSM program, but without the sleepable flag, so helpers like `bpf_d_path()` (Which is "sleepable") would fail to load.
+
+### Useful references
+
+* [BPF Kernel Functions (kfuncs)](https://docs.kernel.org/bpf/kfuncs.html)
+* [kfuncs for BPF LSM use cases (Presentation)](https://lpc.events/event/18/contributions/1940/attachments/1438/3389/kfuncs%20for%20BPF%20LSM%20Use%20Cases.v4.pdf?utm_source=chatgpt.com)
+* [Eunomia-bpf's LSM example](https://eunomia.dev/en/tutorials/19-lsm-connect/)
+* Master list of hookable LSM functions (**`include/linux/lsm_hooks.h`**  in your kernel tree): [Google Android Source](https://android.googlesource.com/kernel/common/%2B/6be064d42c55/include/linux/lsm_hooks.h) or [GitHub Linux source tree (`lsm_hook_defs.h`)](https://github.com/torvalds/linux/blob/master/include/linux/lsm_hook_defs.h)
