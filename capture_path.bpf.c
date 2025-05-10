@@ -9,6 +9,11 @@
 /* Ring buffer event */
 struct event {
     u32 pid;
+    u32 uid;
+    u32 gid;
+    u32 mode; /* permission bits + type bits */
+    u64 inode;
+    u64 size;
     char path[MAX_PATH_LEN];
 };
 
@@ -31,6 +36,7 @@ static __always_inline int get_path_full(struct file *f, char *buf, int len) {
 SEC("lsm.s/file_open")
 int BPF_PROG(capture_open, struct file *file) {
     struct event *e;
+    struct inode *inode;
     int ret;
 
     /* Reserve space */
@@ -39,6 +45,13 @@ int BPF_PROG(capture_open, struct file *file) {
         return 0;
 
     e->pid = bpf_get_current_pid_tgid() >> 32;
+
+    inode = BPF_CORE_READ(file, f_inode);
+    e->uid = BPF_CORE_READ(inode, i_uid.val);
+    e->gid = BPF_CORE_READ(inode, i_gid.val);
+    e->mode = BPF_CORE_READ(inode, i_mode);
+    e->inode = BPF_CORE_READ(inode, i_ino);
+    e->size = BPF_CORE_READ(inode, i_size);
 
     /* Grab full path safely */
     ret = get_path_full(file, e->path, sizeof(e->path));
